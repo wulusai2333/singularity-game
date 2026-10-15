@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>selftest</title>
+<style>html,body{margin:0;background:#000;color:#9f9;font:12px Consolas,monospace}
+#c{width:1280px;height:720px;display:block}#out{white-space:pre;padding:8px}</style></head>
+<body>
+<canvas id="c"></canvas>
+<pre id="out">running</pre>
+<script>window.__errors = []; window.onerror = function (m, s, l, c) { window.__errors.push(m + ' @' + l + ':' + c); };</script>
+<script src="../game.js"></script>
+<script src="../render.js"></script>
+<script>
+setTimeout(function () {
+  var out = [], failed = 0;
+  function step(name, fn) {
+    try { fn(); out.push('ok   ' + name); }
+    catch (e) { failed++; out.push('FAIL ' + name + ' :: ' + (e && e.message ? e.message : e)); }
+  }
+  var cv = document.getElementById('c');
+  var g = null;
+  function key(type, code) { window.dispatchEvent(new KeyboardEvent(type, { code: code, bubbles: true })); }
+  function mouse(type, button, x, y) { cv.dispatchEvent(new MouseEvent(type, { button: button, clientX: x, clientY: y, bubbles: true })); }
+  // ff 必须走一遍 syncInput，否则等价于"玩家不按键"
+  function ff(sec, bot) {
+    var n = Math.round(sec * 60);
+    for (var i = 0; i < n; i++) {
+      if (window.__syncInput) window.__syncInput();
+      if (bot) SINGULARITY.botThink(g);
+      SINGULARITY.advance(g, 1 / 60);
+    }
+  }
+
+  step('boot 无异常', function () { SINGULARITY.boot(cv); g = window.__GAME__; });
+  step('暴露调试句柄', function () { if (!g || !window.__syncInput) throw new Error('__GAME__/__syncInput 未暴露'); });
+  step('菜单状态 = MENU', function () { if (g.state !== 'MENU') throw new Error(g.state); });
+  step('菜单背景自己在跑（井/敌人）', function () {
+    ff(4, false);
+    if (g.enemies.length + g.pending.length < 1) throw new Error('菜单里没有任何敌人');
+    if (g.wells.length < 1) throw new Error('菜单里没有井');
+  });
+  step('空格开始游戏', function () { key('keydown', 'Space'); if (g.state !== 'PLAY') throw new Error('状态 ' + g.state); });
+  step('鼠标坐标映射到逻辑空间', function () {
+    mouse('mousemove', 0, 900, 300); ff(1 / 60, false);
+    var mx1 = g.input.mx;
+    if (!(mx1 > 0 && mx1 <= SINGULARITY.W)) throw new Error('mx 越界 ' + mx1);
+    mouse('mousemove', 0, 400, 300); ff(1 / 60, false);
+    if (!(g.input.mx < mx1 - 50)) throw new Error('移动鼠标没有改变世界坐标 ' + mx1 + ' -> ' + g.input.mx);
+  });
+  step('左键按下 = 放置井', function () {
+    mouse('mousemove', 0, 900, 300); mouse('mousedown', 0, 900, 300);
+    ff(0.5, false);
+    if (g.stats.wells < 1) throw new Error('没有放下井');
+  });
+  step('左键抬起 = 停止放置（冷却内不刷屏）', function () {
+    mouse('mouseup', 0, 900, 300);
+    var before = g.stats.wells;
+    ff(1.2, false);
+    if (g.stats.wells > before + 1) throw new Error('抬起后仍在放井');
+  });
+  step('Shift 冲刺进入冷却', function () {
+    key('keydown', 'ShiftLeft'); ff(0.1, false);
+    if (g.dashCd <= 0) throw new Error('冲刺没进入冷却');
+    key('keyup', 'ShiftLeft');
+  });
+  step('空格坍缩并清空井', function () {
+    g.startLock = 0; g.energy = 2; g.wells.length = 0;
+    mouse('mousedown', 0, 640, 360); ff(0.5, false); mouse('mouseup', 0, 640, 360);
+    if (g.wells.length < 1) throw new Error('准备阶段没放上井');
+    var n = g.stats.novas;
+    key('keydown', 'Space'); ff(0.3, false);
+    if (g.stats.novas <= n) throw new Error('没有触发坍缩');
+    if (g.wells.length !== 0) throw new Error('坍缩后井没清空');
+  });
+  step('P 暂停 / 继续', function () {
+    key('keydown', 'KeyP');
+    if (g.state !== 'PAUSE') throw new Error('未暂停 ' + g.state);
+    var t = g.stats.time; ff(1, false);
+    if (g.stats.time !== t) throw new Error('暂停时仍在推进');
+    key('keydown', 'KeyP');
+    if (g.state !== 'PLAY') throw new Error('未恢复');
+  });
+  step('M 静音开关', function () {
+    key('keydown', 'KeyM'); if (!g.muted) throw new Error('未静音');
+    key('keydown', 'KeyM'); if (g.muted) throw new Error('未取消静音');
+  });
+  step('R 重开清零', function () {
+    ff(6, true);
+    key('keydown', 'KeyR');
+    if (g.score !== 0 || g.stats.time > 0.2 || g.hp !== SINGULARITY.CFG.player.hp) throw new Error('重开没有清零');
+  });
+  step('机器人快进 90 秒不出异常', function () {
+    ff(90, true);
+    if (!isFinite(g.score)) throw new Error('分数 NaN');
+  });
+  step('死亡流程', function () {
+    var guard = 0;
+    while (g.state === 'PLAY' && guard++ < 60 * 240) { SINGULARITY.botThink(g); SINGULARITY.advance(g, 1 / 60); }
+    if (g.state !== 'DEAD') throw new Error('一直不死？' + g.state);
+    ff(2, false);
+  });
+  step('死亡后 R 重开', function () { key('keydown', 'KeyR'); if (g.state !== 'PLAY') throw new Error(g.state); });
+  document.getElementById('out').textContent = 'running\n' + out.join('\n');
+
+  // 第二段：等渲染循环真正画过几帧再采样像素（resize 会清空画布，所以放在最后）
+  setTimeout(function () {
+    step('窗口缩放不炸', function () { window.dispatchEvent(new Event('resize')); });
+    step('画面确实被绘制了（非全黑）', function () {
+      if (window.__renderOnce) window.__renderOnce();   // 不依赖 rAF 的同步渲染
+      var c2 = cv.getContext('2d');
+      var d = c2.getImageData(0, 0, cv.width, cv.height).data;
+      var lit = 0;
+      for (var i = 0; i < d.length; i += 4 * 101) if (d[i] + d[i + 1] + d[i + 2] > 45) lit++;
+      out.push('     亮点采样 = ' + lit);
+      if (lit < 25) throw new Error('亮点太少 ' + lit);
+    });
+    if (window.__errors.length) { failed += window.__errors.length; out.push('JS 运行时错误：' + window.__errors.join(' | ')); }
+    document.title = 'SELFTEST-' + (failed === 0 ? 'PASSED' : 'FAILED-' + failed);
+    document.getElementById('out').textContent = document.title + '\n' + out.join('\n');
+  }, 400);
+}, 500);
+</script>
+</body></html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>奇点 SINGULARITY — 引力即弹药</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;background:#02040a;overflow:hidden;
+    font-family:"Microsoft YaHei",system-ui,sans-serif;color:#cfe9ff;
+    -webkit-user-select:none;user-select:none;touch-action:none}
+  #c{display:block;width:100vw;height:100vh;cursor:none}
+  #fallback{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+    text-align:center;padding:24px;font-size:15px;line-height:1.9;color:#9dc6e6}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="fallback">如果你的浏览器没有显示游戏，请用 Chrome / Edge 打开本文件。<br>（需要支持 Canvas 2D 与 WebAudio）</div>
+<script src="game.js"></script>
+<script src="render.js"></script>
+<script>
+  (function () {
+    var cv = document.getElementById('c');
+    try {
+      if (!window.SINGULARITY || !window.SINGULARITY.boot) throw new Error('模块未加载');
+      window.SINGULARITY.boot(cv);
+    } catch (e) {
+      document.getElementById('fallback').style.display = 'flex';
+      document.getElementById('fallback').innerHTML = '启动失败：' + (e && e.message ? e.message : e);
+    }
+  })();
+</script>
+</body>
+</html>
