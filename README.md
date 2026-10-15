@@ -14,6 +14,9 @@
 > no images, no audio files, no libraries. Written in ~1,700 lines of vanilla JS.
 
 🎮 **在线试玩：<https://wulusai2333.github.io/singularity-game/>**
+🎬 **宣传片（58 秒 / 1080p60 / 含音轨）：[promo/out/singularity_promo_1080p60.mp4](promo/out/singularity_promo_1080p60.mp4)**
+　└ 不录屏：整支片子是按剧本驱动游戏本体**逐帧渲染**出来的，音效也是按 `render.js` 的合成配方复刻的，
+　　所以音画严格同步。流水线见 [`promo/README.md`](promo/README.md)，B 站投稿文案见 [`promo/B站投稿文案.md`](promo/B站投稿文案.md)。
 
 ![标题](screenshots/shot_menu.png)
 ![对局](screenshots/shot_play.png)
@@ -74,10 +77,13 @@
 ```
 index.html         34 行   外壳：canvas + 启动
 game.js           832 行   纯逻辑（无 DOM）：物理 / 井 / 连锁 / 波次 / 粒子 / 演示 AI
-render.js         869 行   表现：程序化美术 + WebAudio 合成 + 输入 + 主循环
+render.js         882 行   表现：程序化美术 + WebAudio 合成 + 输入 + 主循环
 tests/simulate.js          无头单元/集成测试（4 万+ 断言）
 tests/census.js            对局强度普查（每 10 秒的场上人数/击杀/坍缩，用来调难度）
 tests/selftest.html        浏览器层自检（真实事件流：开始/放井/坍缩/暂停/静音/重开/死亡/缩放）
+promo/director.js          宣传片导演台：时间轴剧本 + 镜头推拉 + 字幕卡 + 音效日志
+promo/capture.js           零依赖 CDP 抓帧器（Node 自带 WebSocket 直连 Chrome）
+promo/audio.py             音轨合成：游戏音效复刻 + numpy 现场配乐
 ```
 
 `game.js` 用固定步长（1/60）推进，与帧率解耦；空间网格负责碰撞查询与分离力，

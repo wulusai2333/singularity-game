@@ -1,0 +1,8 @@
+# 这些是本机生成的中间产物，不进仓库（都可以用 README 里的三条命令重新生成）
+audio.wav
+sfx.json
+review/
+_tc/
+out/draft.mp4
+out/_*.mp4
+*_new.js

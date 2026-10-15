@@ -710,29 +710,39 @@
   }
 
   /* ============================== 启动/输入 ============================== */
+  /* 把画布按窗口尺寸铺满，并把 1280x720 的逻辑场地居中裁进视口。
+     抽出来是为了让宣传片导演页也能复用同一套坐标换算。 */
+  function fitCanvas(canvas, view) {
+    view = view || { cssW: 1280, cssH: 720, dpr: 1, scale: 1, ox: 0, oy: 0 };
+    view.baseScale = view.baseScale || 1;
+    view.baseOx = view.baseOx || 0;
+    view.baseOy = view.baseOy || 0;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cssW = window.innerWidth, cssH = window.innerHeight;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    view.cssW = cssW; view.cssH = cssH; view.dpr = dpr;
+    view.scale = Math.min(cssW / W, cssH / H);
+    view.ox = (cssW - W * view.scale) / 2;
+    view.oy = (cssH - H * view.scale) / 2;
+    // 记录"无缩放"的基准，导演页的推镜在它上面叠加
+    view.baseScale = view.scale; view.baseOx = view.ox; view.baseOy = view.oy;
+    return view;
+  }
+
   function boot(canvas) {
     var ctx = canvas.getContext('2d', { alpha: false });
     var audio = makeAudio();
     var best = 0;
     try { best = parseInt(localStorage.getItem('singularity.best') || '0', 10) || 0; } catch (err) { best = 0; }
     var g = S.createGame({ audio: audio, best: best });
-    var view = { cssW: 1280, cssH: 720, dpr: 1, scale: 1, ox: 0, oy: 0 };
+    var view = fitCanvas(canvas);
     var params = new URLSearchParams(location.search);
 
-    function resize() {
-      var dpr = Math.min(window.devicePixelRatio || 1, 2);
-      var cssW = window.innerWidth, cssH = window.innerHeight;
-      canvas.width = Math.floor(cssW * dpr);
-      canvas.height = Math.floor(cssH * dpr);
-      canvas.style.width = cssW + 'px';
-      canvas.style.height = cssH + 'px';
-      view.cssW = cssW; view.cssH = cssH; view.dpr = dpr;
-      view.scale = Math.min(cssW / W, cssH / H);
-      view.ox = (cssW - W * view.scale) / 2;
-      view.oy = (cssH - H * view.scale) / 2;
-    }
+    function resize() { fitCanvas(canvas, view); }
     window.addEventListener('resize', resize);
-    resize();
 
     function toWorld(clientX, clientY) {
       var r = canvas.getBoundingClientRect();
@@ -866,4 +876,7 @@
   }
 
   window.SINGULARITY.boot = boot;
+  window.SINGULARITY.render = render;          // 供宣传片/工具逐帧调用
+  window.SINGULARITY.fitCanvas = fitCanvas;
+  window.SINGULARITY.makeAudio = makeAudio;
 })();
